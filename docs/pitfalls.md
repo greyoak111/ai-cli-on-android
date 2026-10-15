@@ -18,6 +18,23 @@
 npm install --os=linux --cpu=arm64 <包>
 ```
 
+### 1b. 平台包声明了 `libc` 时，还要再给一个 `--libc=glibc`
+
+**症状**：加了 `--os=linux --cpu=arm64` 还是装不上平台包 —— 装完只有两三个包，
+运行时报 `no platform package found`。
+
+**原因**：有的平台包（实测：`@github/copilot-linux-arm64`）声明了 `"libc": ["glibc"]`。
+npm 判断本机 libc 靠 Node 的 `process.report` —— 而安卓版 Node 的 report 里**没有**
+`glibcVersionRuntime` 字段，于是 npm 把它认成 **musl**，glibc 的包就被跳过了。
+
+**解法**：
+
+```sh
+npm install --os=linux --cpu=arm64 --libc=glibc <包>
+```
+
+（反过来，要拿 musl 变体就 `--libc=musl`。）
+
 ---
 
 ## 2. Python 的兼容 tag 里没有 manylinux，PyPI 形同虚设

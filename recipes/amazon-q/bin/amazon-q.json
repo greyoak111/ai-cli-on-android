@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "url": "https://desktop-release.q.us-east-1.amazonaws.com/1.19.7/q-aarch64-linux.zip",
+      "sha256": "38e59a05e4a51e01e766e63e787838db57bc50338bb9c5a45f153cf68f0be419",
+      "to": "app",
+      "mode": "755",
+      "extract": { "kind": "zip", "prefix": "q" }
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/g/gcc-14/libgcc-s1_14.2.0-19_arm64.deb",
+      "sha256": "1108bc87879833d6d9a145f22a4a15cddb34e065b4b5f4b97bee586adbac2851",
+      "to": "libs/libgcc_s.so.1",
+      "mode": "755",
+      "extract": { "kind": "deb", "member": "usr/lib/aarch64-linux-gnu/libgcc_s.so.1" }
+    },
+    {
+      "url": "https://deb.debian.org/debian/pool/main/g/gcc-14/libstdc++6_14.2.0-19_arm64.deb",
+      "sha256": "6669b0c52a2e7c6af9adfdabce3ff6e286065cdfbc7b85280862b5f799daebee",
+      "to": "libs/libstdc++.so.6",
+      "mode": "755",
+      "extract": { "kind": "deb", "member": "usr/lib/aarch64-linux-gnu/libstdc++.so.6.0.33" }
+    }
+  ]
+}

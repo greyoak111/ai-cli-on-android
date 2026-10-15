@@ -1,0 +1,30 @@
+#!{{PREFIX}}/bin/bash
+# agy — Antigravity CLI（Google，cccodroid 组件 · 启动器型）
+#
+#   和官方一样的用法：agy / agy -p "…" / agy --help
+#
+# 它是**唯一一家官方发安卓（bionic）构建的 CLI** —— 直接 exec 即可，
+# 不需要加载器、不需要补库、不需要 DNS/CA 处理。
+#
+# 组件不含厂商二进制：首次运行按官方 manifest 取（sha512 由 manifest 给出并核对）。
+#
+# 环境变量：
+#   CCODROID_AI_CLI_HOME   安装根目录（默认 ~/.local/share/cccodroid/ai-cli）
+#   CCODROID_AGY_MANIFEST  覆盖 manifest 地址（默认官方 android_arm64）
+set -e
+
+PREFIX="${CCODROID_PREFIX:-${PREFIX:-}}"
+[ -n "$PREFIX" ] || PREFIX="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+HOME_DIR="${HOME:-$PREFIX/../home}"
+ROOT="${CCODROID_AI_CLI_HOME:-$HOME_DIR/.local/share/cccodroid/ai-cli}/antigravity-cli"
+DATA="$PREFIX/share/cccodroid/components/antigravity-cli"
+BIN="$ROOT/app/agy"
+
+if [ ! -x "$BIN" ]; then
+  echo "agy: 首次运行，从官方 CDN 取安卓构建（约 176 MB，只这一次）" >&2
+  mkdir -p "$ROOT/app"
+  "$PREFIX/bin/python3" "$DATA/install.py" "$ROOT/app" >&2
+fi
+
+exec "$BIN" "$@"

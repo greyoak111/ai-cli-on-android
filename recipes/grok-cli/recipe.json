@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "grok-cli",
+  "kind": "termux",
+  "revision": 1,
+  "version": "0.1.220",
+  "name": { "zh": "Grok Build（xAI）", "en": "Grok Build (xAI)" },
+  "desc": {
+    "zh": "xAI 官方的终端编程代理（全屏 TUI，支持 headless）。启动器型组件，自带本地 DNS 桥——它的二进制是全静态的，在安卓上必须过 DNS 与 CA 两关才能联网。",
+    "en": "xAI's official terminal coding agent. Launcher-style component bundled with a local DNS bridge: the binary is fully static and needs the DNS + CA workarounds on Android."
+  },
+  "roots": ["nodejs"],
+  "bin": ["grok"],
+  "selftest": "grok --version",
+  "needs": { "shizuku": false, "display": false, "gpu": false },
+  "category": "ai",
+  "license": "Proprietary",
+  "homepage": "https://github.com/xai-org/grok-build",
+  "maintainers": ["greyoak111"],
+  "files": {
+    "usr/bin/grok": { "src": "bin/grok", "mode": "755" },
+    "usr/share/cccodroid/components/grok-cli/dnsproxy.py": { "src": "bin/dnsproxy.py", "mode": "755" }
+  },
+  "notes": "**许可**：npm 平台包内声明 Proprietary（源码仓库是 Apache-2.0，但分发件另有条款），故只做启动器。形态最刁钻的一家：npm 包里只有一个 brotli 压缩的 bin/grok.br（106 MB 解压后是全静态 ELF），启动器用 node 自带 zlib 就地解开（npm pack 会核对 registry 的完整性哈希）。联网两关同 codex：DNS 桥（dnsproxy.py，只监听 127.0.0.1）+ SSL_CERT_FILE 指工具包自带的 CA。真机实测（Android 14 / aarch64）：--version 0.1.220、--help 148 行；带桥与 CA 后 grok -p 打到 api.x.ai 返回 400 Incorrect API key（假密钥，链路全通）。"
+}

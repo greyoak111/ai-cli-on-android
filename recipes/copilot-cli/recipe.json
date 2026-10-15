@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "id": "copilot-cli",
+  "kind": "termux",
+  "revision": 1,
+  "version": "1.0.98",
+  "name": { "zh": "GitHub Copilot CLI（微软）", "en": "GitHub Copilot CLI (Microsoft)" },
+  "desc": {
+    "zh": "GitHub 官方的终端编程代理：仓库上下文、改文件、跑命令，自动复用 gh 的登录。启动器型组件——程序由首次运行时从官方 npm 取到你的私有目录，并补两个它缺的 C++ 运行库。",
+    "en": "GitHub's official terminal coding agent, reusing your gh login. Launcher-style component: the program is fetched from the official npm on first run, plus the two C++ runtime libs it needs."
+  },
+  "roots": ["nodejs"],
+  "bin": ["copilot"],
+  "selftest": "copilot --version",
+  "needs": { "shizuku": false, "display": false, "gpu": false },
+  "category": "ai",
+  "license": "Proprietary",
+  "homepage": "https://github.com/github/copilot-cli",
+  "maintainers": ["greyoak111"],
+  "files": {
+    "usr/bin/copilot": { "src": "bin/copilot", "mode": "755" },
+    "usr/share/cccodroid/components/copilot-cli/fetch.py": { "src": "bin/fetch.py", "mode": "755" },
+    "usr/share/cccodroid/components/copilot-cli/copilot-cli.json": { "src": "bin/copilot-cli.json", "mode": "644" }
+  },
+  "notes": "**许可**：npm 包声明 NOASSERTION（专有），故只做启动器、不打包其文件。三个安卓特有处理：(1) npm 要 --libc=glibc —— 它的平台包 @github/copilot-linux-arm64 声明 libc=glibc，而本机 npm 把 libc 认成 musl（Node 的 report 里没有 glibc 字段），不加这个参数平台包会被**静默跳过**（表现为装完只有 2 个包、运行时报 no platform package found）；(2) 绕过它自带的 JS 壳：壳按 process.platform 拼包名（android → @github/copilot-android，不存在），直接用 glibc 加载器跑平台二进制；(3) 缺 libstdc++.so.6 与 libgcc_s.so.1，从 Debian 的 libstdc++6 / libgcc-s1 取（sha256 钉死）。真机实测（Android 14 / aarch64）：--version 1.0.98；--help 341 行；**用本机 gh 的凭据跑出了真实回复**（copilot -p 'say hi' → Hi!，AI Credits 0.18）。"
+}

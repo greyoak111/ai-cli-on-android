@@ -1,0 +1,58 @@
+#!{{PREFIX}}/bin/bash
+# grok — Grok Build（xAI，cccodroid 组件 · 启动器型 + DNS 桥）
+#
+#   和官方一样的用法：grok / grok -p "…" / grok --help
+#
+# 组件不含厂商二进制：首次运行用 npm 取官方平台包（npm 自己会核对 registry 的完整性哈希），
+# 它发的是一个 **brotli 压缩**的 grok.br，这里就地解开。
+#
+# 解出来是全静态 ELF，联网要过 DNS 与 CA 两关（同 codex，见代码里的注释）。
+#
+# 环境变量：
+#   CCODROID_AI_CLI_HOME        安装根目录（默认 ~/.local/share/cccodroid/ai-cli）
+#   CCODROID_DNS_BRIDGE_PORT    桥的端口（默认 18080，与其它静态 CLI 共用）
+#   CCODROID_GROK_VERSION       覆盖配方钉住的版本
+set -e
+
+PREFIX="${CCODROID_PREFIX:-${PREFIX:-}}"
+[ -n "$PREFIX" ] || PREFIX="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+PKG="@xai-official/grok-linux-arm64"
+VER="${CCODROID_GROK_VERSION:-0.1.220}"
+HOME_DIR="${HOME:-$PREFIX/../home}"
+ROOT="${CCODROID_AI_CLI_HOME:-$HOME_DIR/.local/share/cccodroid/ai-cli}/grok-cli"
+PACK="$ROOT/pack"
+BIN="$PACK/package/bin/grok"
+
+if [ ! -x "$BIN" ]; then
+  echo "grok: 首次运行，取官方 npm 平台包 $PKG@$VER 并解压（约 31 MB，只这一次）" >&2
+  mkdir -p "$PACK"
+  "$PREFIX/bin/npm" pack "$PKG@$VER" --pack-destination "$PACK" >&2
+  tar xzf "$PACK/${PKG#@xai-official/}"*.tgz -C "$PACK"
+  # 官方发的是 brotli 压缩的 grok.br，用 node 自带的 zlib 解开
+  "$PREFIX/bin/node" -e 'const z=require("zlib"),fs=require("fs");
+    const [out,inp]=process.argv.slice(1);
+    fs.writeFileSync(out, z.brotliDecompressSync(fs.readFileSync(inp)), {mode:0o755});' \
+    "$BIN" "$PACK/package/bin/grok.br"
+fi
+
+# ── DNS 桥（静态 musl 只读 /etc/resolv.conf，安卓没有） ──────────────
+PORT="${CCODROID_DNS_BRIDGE_PORT:-18080}"
+BRIDGE="$PREFIX/share/cccodroid/components/grok-cli/dnsproxy.py"
+bridge_up() { (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; }
+
+if [ -f "$BRIDGE" ] && ! bridge_up; then
+  nohup "$PREFIX/bin/python3" "$BRIDGE" "$PORT" >"$ROOT/dnsproxy.log" 2>&1 &
+  sleep 1
+fi
+if bridge_up; then
+  export HTTPS_PROXY="${HTTPS_PROXY:-http://127.0.0.1:$PORT}"
+  export HTTP_PROXY="${HTTP_PROXY:-http://127.0.0.1:$PORT}"
+fi
+
+# ── CA 包（安卓没有 /etc/ssl/certs） ────────────────────────────────
+if [ -z "${SSL_CERT_FILE:-}" ] && [ -f "$PREFIX/etc/tls/cert.pem" ]; then
+  export SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem"
+fi
+
+exec "$BIN" "$@"

@@ -1,0 +1,48 @@
+#!{{PREFIX}}/bin/bash
+# copilot — GitHub Copilot CLI（cccodroid 组件 · 启动器型）
+#
+#   和官方一样的用法：copilot / copilot -p "…" / copilot --help
+#
+# 组件不含厂商二进制：首次运行从官方 npm 装到用户私有目录，之后直接复用。
+#
+# 三个安卓特有的处理：
+#   1) npm 要 --os=linux --cpu=arm64 **--libc=glibc**：安卓上 process.platform 是 android、
+#      而它的平台包声明了 libc=glibc（npm 在本机把 libc 认成 musl），不加 --libc 会静默跳过平台包
+#   2) 它的 JS 壳按 process.platform 拼包名（android → @github/copilot-android，不存在），
+#      所以这里绕过 .bin/copilot，直接用 glibc 加载器跑平台二进制
+#   3) 平台二进制缺 libstdc++.so.6 / libgcc_s.so.1 —— 从 Debian 的 deb 取（sha256 钉死）
+#
+# 环境变量：
+#   CCODROID_AI_CLI_HOME       安装根目录（默认 ~/.local/share/cccodroid/ai-cli）
+#   CCODROID_COPILOT_VERSION   覆盖配方钉住的版本
+set -e
+
+PREFIX="${CCODROID_PREFIX:-${PREFIX:-}}"
+[ -n "$PREFIX" ] || PREFIX="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+PKG="@github/copilot"
+VER="${CCODROID_COPILOT_VERSION:-1.0.98}"
+HOME_DIR="${HOME:-$PREFIX/../home}"
+ROOT="${CCODROID_AI_CLI_HOME:-$HOME_DIR/.local/share/cccodroid/ai-cli}/copilot-cli"
+DATA="$PREFIX/share/cccodroid/components/copilot-cli"
+BIN="$ROOT/node_modules/@github/copilot-linux-arm64/copilot"
+
+if [ ! -x "$BIN" ]; then
+  echo "copilot: 首次运行，从官方 npm 装 $PKG@$VER（约 120 MB，只这一次）" >&2
+  mkdir -p "$ROOT"
+  "$PREFIX/bin/npm" install --prefix "$ROOT" --no-audit --no-fund \
+    --os=linux --cpu=arm64 --libc=glibc "$PKG@$VER" >&2
+  "$PREFIX/bin/python3" "$DATA/fetch.py" "$DATA/copilot-cli.json" "$ROOT" >&2
+fi
+
+LD="$PREFIX/glibc/lib/ld-linux-aarch64.so.1"
+SHIM="$(dirname "${CCAPP_BIN:-$PREFIX/../app/bin}")/lib/seccomp-enosys.so"
+[ -x "$LD" ] || { echo "copilot: 缺 glibc 加载器：$LD" >&2; exit 2; }
+
+unset LD_PRELOAD
+if [ -r "$SHIM" ]; then
+  exec "$LD" --library-path "$ROOT/libs:$PREFIX/glibc/lib" --argv0 "$BIN" \
+    --preload "$SHIM" "$BIN" "$@"
+else
+  exec "$LD" --library-path "$ROOT/libs:$PREFIX/glibc/lib" --argv0 "$BIN" "$BIN" "$@"
+fi

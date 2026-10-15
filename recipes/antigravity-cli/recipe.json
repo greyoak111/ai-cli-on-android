@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "antigravity-cli",
+  "kind": "termux",
+  "revision": 1,
+  "version": "1.3.5",
+  "name": { "zh": "Antigravity CLI（Google）", "en": "Antigravity CLI (Google)" },
+  "desc": {
+    "zh": "Google 官方的终端代理（agy）。它家是唯一直接发安卓构建的——启动器只负责按官方 manifest 取件并核对 sha512，别的什么都不用做。",
+    "en": "Google's official terminal agent (agy), and the only vendor shipping an Android build — the launcher just fetches it via the official manifest and verifies sha512."
+  },
+  "roots": ["nodejs"],
+  "bin": ["agy"],
+  "selftest": "agy --version",
+  "needs": { "shizuku": false, "display": false, "gpu": false },
+  "category": "ai",
+  "license": "Proprietary",
+  "homepage": "https://antigravity.google",
+  "maintainers": ["greyoak111"],
+  "files": {
+    "usr/bin/agy": { "src": "bin/agy", "mode": "755" },
+    "usr/share/cccodroid/components/antigravity-cli/install.py": { "src": "bin/install.py", "mode": "755" }
+  },
+  "notes": "候选里唯一一家**官方发安卓（bionic）构建**的：它的 install.sh 明写 `uname -o = Android` 时取 android 平台，manifest 给 cli_android_arm64.tar.gz（NDK r29 编译，interpreter 是 /system/bin/linker64）。所以这个组件是三行启动器 —— 不需要 glibc 加载器、不需要补库、不需要 DNS 桥。取件按官方流程：读 manifest → 下载 → **核对 manifest 给出的 sha512** → 从 tar.gz 里取 antigravity 成员。真机实测（Android 14 / aarch64）：用官方安装脚本装过 1.3.5，agy --version → 1.3.5、--help 39 行、agy -p → 打印 Google OAuth 登录 URL（无头环境等验证码超时属正常）。"
+}

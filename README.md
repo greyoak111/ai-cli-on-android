@@ -1,103 +1,118 @@
-# AI CLI 上手机 · 实测与通法
+# AI CLIs on Android · survey and general method
 
-> 各大模型厂商的命令行 AI 代理，在安卓手机上**原生运行**的实测记录，以及让它们跑起来的那一层适配方法。
+**English** · [简体中文](README.zh-CN.md)
+
+> What happens when you take the command-line AI agents shipped by the major model vendors and run them
+> **natively on an Android phone** — 13 vendors tested, plus the thin compatibility layer that makes them run.
 >
-> 本仓库**不含任何厂商的二进制**：只放方法、脚本与实测记录；安装一律走官方渠道。各 CLI 的商标与二进制归各自厂商。
+> **No vendor binaries live in this repository.** Only methods, scripts and test records; install everything
+> from the vendors' own channels. Names and trademarks belong to their owners.
 
-## 一句话结论
+## The one-line conclusion
 
-安卓手机本来就是 Linux。只要把「这程序是给谁的 Linux 写的」这件事处理掉，
-各家厂商的 AI 命令行代理都能原生跑在手机上 —— **不用 root、不用容器、不用改系统**。
+An Android phone is already Linux. Once you deal with the one question — *which Linux is this program built for?* —
+every vendor's CLI runs natively: no root, no container, no modified system.
 
-实测环境：Android 14（SDK 34）· aarch64 · 未 root · 普通应用 uid ·
-Node 26 / Python 3.14 / 一套 glibc 运行时（`$PREFIX/glibc`）。
+Tested on: Android 14 (SDK 34) · aarch64 · non-root · ordinary app uid ·
+Node 26 / Python 3.14 / a glibc runtime (`$PREFIX/glibc`).
 
-## 总表（2026-10-15 实测）
+## Results (measured 2026-10-15)
 
-| 厂商 | CLI | 分发形态 | 结果 | 需要的适配 |
+| Vendor | CLI | Distribution form | Result | Adaptation needed |
 |---|---|---|---|---|
-| Google | Antigravity CLI `agy` 1.3.5 | **官方 Android/bionic 构建** | ✅ 直接跑 | 无 |
-| Anthropic | Claude Code 2.1.292 | glibc 动态 | ✅ 完整可用 | glibc 加载器 + seccomp 垫片 |
-| OpenAI | Codex CLI 0.162.1 | 静态 musl（254 MB） | ✅ 打到真实 API | DNS 桥 + CA 包 |
-| xAI | Grok Build 0.1.220 | brotli 压缩的静态 ELF | ✅ 打到真实 API | 解压 + DNS 桥 + CA |
-| 微软 | GitHub Copilot CLI 1.0.98 | glibc 动态 + C++ | ✅ **真实模型回复** | 加载器 + `libstdc++/libgcc_s` |
-| 微软 | GitHub Copilot CLI（musl 版） | musl 动态 | ✅ 启动成功 | Alpine musl 加载器 + seccomp |
-| Google | Gemini CLI 0.64.0 | Node | ✅ 打到真实 API | `TERMUX_VERSION=1` |
-| 阿里 | Qwen Code 0.25.1 | Node | ✅ 到认证步骤 | 无 |
-| Moonshot | Kimi Code 2.2.0 | Node | ✅ 到认证步骤 | 无 |
-| 腾讯 | CodeBuddy 2.167.0 | Node | ✅ 到认证步骤 | 无 |
-| Mistral | Vibe 2.26.1 | PyInstaller / glibc | ✅ 打到真实 API | 加载器 + 补 `libz` |
-| Amazon | Q Developer CLI 1.19.7 | glibc 动态 + C++ | ✅ 到认证步骤 | 加载器 + C++ 库 |
-| 智谱 Z.ai | 无独立 CLI；官方 helper | Node | ✅ helper 可跑 | 无 |
-| DeepSeek | **无官方 CLI** | — | — | 只能把 API 挂进别的 CLI |
+| Google | Antigravity CLI `agy` 1.3.5 | **official Android/bionic build** | ✅ runs as-is | none |
+| Anthropic | Claude Code 2.1.292 | glibc, dynamic | ✅ fully working | glibc loader + seccomp shim |
+| OpenAI | Codex CLI 0.162.1 | static musl (254 MB) | ✅ reached the real API | DNS bridge + CA bundle |
+| xAI | Grok Build 0.1.220 | brotli-packed static ELF | ✅ reached the real API | unpack + DNS bridge + CA |
+| Microsoft | GitHub Copilot CLI 1.0.98 | glibc + C++ | ✅ **real model answer** | loader + `libstdc++`/`libgcc_s` |
+| Microsoft | GitHub Copilot CLI (musl) | musl, dynamic | ✅ starts | Alpine musl loader + seccomp |
+| Google | Gemini CLI 0.64.0 | Node | ✅ reached the real API | `TERMUX_VERSION=1` |
+| Alibaba | Qwen Code 0.25.1 | Node | ✅ up to auth | none |
+| Moonshot | Kimi Code 2.2.0 | Node | ✅ up to auth | none |
+| Tencent | CodeBuddy 2.167.0 | Node | ✅ up to auth | none |
+| Mistral | Vibe 2.26.1 | PyInstaller / glibc | ✅ reached the real API | loader + `libz` |
+| Amazon | Q Developer CLI 1.19.7 | glibc + C++ | ✅ up to auth | loader + C++ libs |
+| Z.ai (Zhipu) | no standalone CLI | — | helper works | — |
+| DeepSeek | **no official CLI** | — | — | point another CLI at its API |
 
-「到认证步骤 / 打到真实 API」= 程序完整启动、读配置、发起网络请求并被服务端正常应答
-（用假密钥时得到 401/400，即链路全通）。逐家细节见 [`docs/survey.md`](docs/survey.md)。
+"up to auth" = starts fully, reads config, makes the network call and is answered by the server
+(with a dummy key you get 401/400 — the pipeline is complete). Per-CLI detail: [`docs/survey.md`](docs/survey.md).
 
-## 三条主线索
+## Three things to understand
 
-**1. 形态决定一切。** 同是「linux arm64 CLI」，分发形态有五种，适配方式完全不同：
+**1. The distribution form decides everything.** "A Linux arm64 CLI" comes in five shapes, each needing
+a different treatment:
 
-| 形态 | 谁能直接跑 | 适配 |
+| Form | Runs directly? | Adaptation |
 |---|---|---|
-| 官方安卓构建 | 内核直接加载 | 无 |
-| Node / 纯脚本 | 有 node 就行 | 平台判定的环境变量 |
-| 静态二进制（musl/Go） | 内核直接加载 | 联网要过 DNS 与 CA 两关 |
-| glibc 动态 | 不行（安卓没有 `/lib/ld-linux-aarch64.so.1`） | 换 glibc 加载器 |
-| musl 动态 | 不行（没有 `/lib/ld-musl-aarch64.so.1`） | 换 musl 加载器 |
+| Official Android build | kernel loads it | none |
+| Node / plain script | yes, with node | platform checks inside the program |
+| Static binary (musl/Go) | kernel loads it | needs DNS + CA to reach the network |
+| glibc, dynamic | no (no `/lib/ld-linux-aarch64.so.1`) | swap in a glibc loader |
+| musl, dynamic | no (no `/lib/ld-musl-aarch64.so.1`) | swap in a musl loader |
 
-**2. 换加载器不是"跑个 ld.so"那么简单。** 安卓的 seccomp 白名单、bionic 的 `LD_PRELOAD`、
-被当作链接脚本的 `libc.so`、自我重执行时丢失的 `--library-path`……每一个都能让程序以
-完全不像"加载器问题"的方式失败。清单见 [`docs/pitfalls.md`](docs/pitfalls.md)。
+**2. Swapping the loader is more than calling `ld.so`.** Android's seccomp allow-list, bionic's inherited
+`LD_PRELOAD`, the `libc.so` that is actually a linker script, `--library-path` lost when a program re-execs
+itself — each of them fails in ways that look nothing like "a loader problem".
+Checklist: [`docs/pitfalls.md`](docs/pitfalls.md).
 
-**3.「能启动」与「能联网」是两件事。** 静态二进制在安卓上畅通无阻，却常死在两处：
-没有 `/etc/resolv.conf`（DNS 解析不了）和没有 `/etc/ssl/certs`（TLS 验不过）。
-两条都以"看起来像断网"的形式出现。解法见 [`docs/methods.md`](docs/methods.md)。
+**3. "It starts" and "it reaches the network" are two different problems.** Static binaries run fine on
+Android and then die on two environment facts: there is no `/etc/resolv.conf` (DNS) and no `/etc/ssl/certs`
+(TLS roots). Both surface as "looks like the network is down". Fixes: [`docs/methods.md`](docs/methods.md).
 
-## 为什么值得做
+## Why this matters
 
-- **执行回到端侧**：模型推理在云端，代码、文件、工具链留在自己的手机上，
-  不为了"让 AI 跑一下"把仓库传进别人的临时容器。
-- **不绑定厂商**：同一套方法换任何一家 CLI；模型侧同理，各家的 Anthropic/OpenAI 兼容端点都能接。
-- **环境是持久的**：装过的工具、配置、会话都在，不是随会话销毁的沙箱。
+- **Execution moves back to the device.** Inference stays in the cloud; code, files and toolchain stay on
+  your phone — no uploading a repository into somebody's ephemeral container just to let the model run it.
+- **Not bound to one vendor.** The same method carries any CLI; the same holds on the model side
+  (every vendor's Anthropic/OpenAI-compatible endpoint can be wired up).
+- **The environment persists.** Installed tools, config and sessions stay, instead of dying with a sandbox.
 
-## 仓库结构
+## Repository layout
 
 ```
-docs/survey.md     13 家逐家实测：来源、最短复现命令、实测证据、注意事项
-docs/matrix.md     形态 × 适配 矩阵（含"怎么先判断一个 CLI 属于哪类"）
-docs/methods.md    三种加载器方法 + DNS 桥 + CA + seccomp 垫片
-docs/pitfalls.md   平台坑清单：每个都带症状与真实报错
-tools/glibc-run    通用 glibc 启动器（含 --argv0、seccomp 垫片）
-tools/musl-run     通用 musl 启动器（Alpine 加载器 + enosys）
-tools/probe.sh     探测脚本：一条命令出结果，输出落日志
-tools/dnsproxy.py  给静态二进制用的本地 DNS 桥（仅监听回环）
-tools/README.md    工具用法 + 额外库（libz / libstdc++ / musl）从哪来
-recipes/           把实测过的 CLI 做成 cccodroid 组件市场的配方（启动器型，草稿）
+docs/survey.md     the 13 vendors, one by one: source, shortest repro command, evidence, notes
+docs/matrix.md     form → adaptation matrix, and how to classify a CLI you just downloaded
+docs/methods.md    the three loader methods + DNS bridge + CA + seccomp shim
+docs/pitfalls.md   platform pitfalls, each with the real error message
+tools/glibc-run    generic glibc launcher (--argv0, seccomp shim included)
+tools/musl-run     generic musl launcher (Alpine loader + enosys)
+tools/probe.sh     probe harness: one command in, verdict and log out
+tools/dnsproxy.py  loopback-only DNS bridge for static binaries
+tools/README.md    how to use them, and where the extra libs (libz / libstdc++ / musl) come from
+recipes/           the tested CLIs packaged as cccodroid component-market recipes (launcher style, drafts)
+evidence/          short excerpts of the actual runs behind the table above
 ```
 
-## 复现
-
-最小路径（以 Codex 为例）：
+## Reproducing (Codex as the example)
 
 ```sh
-# 1. 官方渠道拿到 linux-arm64 包（npm 平台包）
-npm pack @openai/codex@<版本>-linux-arm64 && tar xzf *.tgz
-# 2. 起 DNS 桥 + 指定 CA，然后跑
+# 1. get the official linux-arm64 package (the npm platform package)
+npm pack @openai/codex@<version>-linux-arm64 && tar xzf *.tgz
+# 2. start the DNS bridge and point the program at a CA bundle, then run
 python3 tools/dnsproxy.py &
-HTTPS_PROXY=http://127.0.0.1:18080 SSL_CERT_FILE=<系统 CA 包> \
+HTTPS_PROXY=http://127.0.0.1:18080 SSL_CERT_FILE=<ca-bundle> \
   ./package/vendor/aarch64-unknown-linux-musl/bin/codex --version
 ```
 
-glibc 系（Copilot / Amazon Q / Vibe 等）：
+glibc family (Copilot / Amazon Q / Vibe):
 
 ```sh
-tools/glibc-run -L ./libs <程序> --version
+tools/glibc-run -L ./libs <program> --version
 ```
 
-## 许可与声明
+## Recipes (component market)
 
-- 本仓库：Apache-2.0。
-- 只含方法、脚本与实测记录，**不打包、不镜像任何厂商的二进制**；
-  安装请走各厂商官方渠道，并遵守各自的许可与条款。
-- 各厂商名称、CLI 名称与商标归各自权利人所有，此处仅为指明兼容对象。
+`recipes/` turns the tested CLIs into [cccodroid](https://github.com/greyoak111/cccodroid) component-market
+recipes — installable from the app's Extensions page, each shipping a skill so the agent knows how to drive it.
+The pattern is *launcher style*: no vendor binary is bundled or redistributed; the launcher fetches the
+program from the vendor's own channel on first run (npm integrity, or pinned URL + sha256), and carries the
+Android-specific fixes (DNS bridge, CA, loader, missing libs) inside itself.
+
+## License and notices
+
+- This repository: Apache-2.0.
+- It contains methods, scripts and test records only. **No vendor binaries are packaged or mirrored** —
+  install from each vendor's official channel and honour their licenses and terms.
+- Vendor, product and CLI names are trademarks of their respective owners and are used here only to
+  identify what was tested.

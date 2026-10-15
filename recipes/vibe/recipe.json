@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "id": "vibe",
+  "kind": "termux",
+  "revision": 1,
+  "version": "2.26.1",
+  "name": { "zh": "Mistral Vibe（Mistral AI）", "en": "Mistral Vibe (Mistral AI)" },
+  "desc": {
+    "zh": "Mistral 官方的终端编程代理。启动器型组件：首次运行时从官方 GitHub Releases 取独立二进制（并核对 sha256），自带补一个它缺的 libz。",
+    "en": "Mistral's official terminal coding agent. Launcher-style component: fetches the standalone binary from the official GitHub Release on first run (sha256-verified) and brings the libz it needs."
+  },
+  "roots": ["nodejs"],
+  "bin": ["vibe"],
+  "selftest": "vibe --version",
+  "needs": { "shizuku": false, "display": false, "gpu": false },
+  "category": "ai",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/mistralai/mistral-vibe",
+  "maintainers": ["greyoak111"],
+  "files": {
+    "usr/bin/vibe": { "src": "bin/vibe", "mode": "755" },
+    "usr/share/cccodroid/components/vibe/fetch.py": { "src": "bin/fetch.py", "mode": "755" },
+    "usr/share/cccodroid/components/vibe/vibe.json": { "src": "bin/vibe.json", "mode": "644" }
+  },
+  "notes": "为什么不用 pip：安卓版 Python 的兼容 tag 里没有 manylinux，PyPI 的 manylinux_aarch64 轮子装不上（且它们链 glibc，bionic Python 也加载不了）；它的 sdist 构建后端是 maturin（Rust），安卓上也没有 Rust。所以走官方 Releases 的 PyInstaller 独立包。三个安卓特有处理：(1) 要 glibc 加载器（安卓没有 /lib/ld-linux-aarch64.so.1）；(2) 缺 libz.so.1 —— 从 Debian 的 zlib1g deb 里取（sha256 钉死）；(3) **PyInstaller 会二次启动，那一刻 --library-path 丢失**，所以 libz 还要再拷一份进它的 _internal/（启动器里做）。真机实测（Android 14 / aarch64）：--version 2.26.1；MISTRAL_API_KEY=假值 × vibe -p → 'Invalid API key'（链路全通）。"
+}

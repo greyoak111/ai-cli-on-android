@@ -1,0 +1,36 @@
+#!{{PREFIX}}/bin/bash
+# q — Amazon Q Developer CLI（cccodroid 组件 · 启动器型）
+#
+#   和官方一样的用法：q / q chat / q doctor / q --version（另有 qchat、qterm 在包内）
+#
+# 组件不含厂商二进制：首次运行从官方 CDN 取（sha256 已钉死）。
+#
+# 环境变量：
+#   CCODROID_AI_CLI_HOME   安装根目录（默认 ~/.local/share/cccodroid/ai-cli）
+set -e
+
+PREFIX="${CCODROID_PREFIX:-${PREFIX:-}}"
+[ -n "$PREFIX" ] || PREFIX="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+HOME_DIR="${HOME:-$PREFIX/../home}"
+ROOT="${CCODROID_AI_CLI_HOME:-$HOME_DIR/.local/share/cccodroid/ai-cli}/amazon-q"
+DATA="$PREFIX/share/cccodroid/components/amazon-q"
+BIN="$ROOT/app/bin/q"
+
+if [ ! -x "$BIN" ]; then
+  echo "q: 首次运行，从官方 CDN 取（约 200 MB，只这一次）" >&2
+  mkdir -p "$ROOT"
+  "$PREFIX/bin/python3" "$DATA/fetch.py" "$DATA/amazon-q.json" "$ROOT" >&2
+fi
+
+LD="$PREFIX/glibc/lib/ld-linux-aarch64.so.1"
+SHIM="$(dirname "${CCAPP_BIN:-$PREFIX/../app/bin}")/lib/seccomp-enosys.so"
+[ -x "$LD" ] || { echo "q: 缺 glibc 加载器：$LD" >&2; exit 2; }
+
+unset LD_PRELOAD
+if [ -r "$SHIM" ]; then
+  exec "$LD" --library-path "$ROOT/libs:$PREFIX/glibc/lib" --argv0 "$BIN" \
+    --preload "$SHIM" "$BIN" "$@"
+else
+  exec "$LD" --library-path "$ROOT/libs:$PREFIX/glibc/lib" --argv0 "$BIN" "$BIN" "$@"
+fi

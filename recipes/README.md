@@ -40,7 +40,7 @@
 | Amazon Q CLI | 官方 zip | Apache-2.0 | 启动器 |
 | Antigravity CLI | 官方安装脚本 | 专有 | 直接跑官方安装器（它自己有安卓构建） |
 
-## 这个目录里已写的配方
+## 这个目录里已写的配方（10 个）
 
 | id | 命令 | 形态 | 特殊处理 |
 |---|---|---|---|
@@ -48,11 +48,30 @@
 | `qwen-code` | `qwen` | Node | 无 |
 | `kimi-code` | `kimi` | Node | 无 |
 | `codebuddy-code` | `codebuddy` | Node | 无 |
-| `codex-cli` | `codex` | 静态 musl | 组件自带 DNS 桥 `dnsproxy.py` + 指 CA 包 |
+| `codex-cli` | `codex` | 静态 musl | 自带 DNS 桥 + CA 包 |
+| `grok-cli` | `grok` | brotli → 静态 ELF | npm pack 后就地解 brotli；DNS 桥 + CA |
+| `copilot-cli` | `copilot` | glibc + C++ | npm 要 `--libc=glibc`；绕过 JS 壳直调平台二进制；补 libstdc++/libgcc_s |
+| `vibe` | `vibe` | PyInstaller | 取官方 Release zip（sha256）；补 libz，并再拷一份进 `_internal/` |
+| `amazon-q` | `q` | glibc + C++ | 版本化 URL（sha256）；补 libgcc_s/libstdc++ |
+| `antigravity-cli` | `agy` | **官方安卓构建** | 只做「按 manifest 取件 + 核 sha512」 |
 
-## 尚未覆盖
+共同点：**都不打包厂商二进制**；取件要么走 npm（自带完整性校验），要么走钉死 URL+sha256；
+缺的 glibc 库从 Debian 的 deb 里按成员抽出（sha256 钉死）。
 
-- **copilot / vibe / amazon-q**：glibc 动态或 PyInstaller 形态，要配 glibc 加载器与额外库
-  （`libstdc++` / `libgcc_s` / `libz`），打包形态与这里不同，见 `../docs/matrix.md` D/F 节。
-- **antigravity**：Google 官方就有安卓构建，组件只需薄薄一层（或让用户跑官方安装脚本）。
-- **各家交互式 TUI 的完整体验**：尚未在真机上逐项验证。
+## 验证状态（2026-10-15，真机 Android 14 / aarch64）
+
+- **格式**：10 个配方全部通过 `cccodroid-components` 的 `tools/check-recipes.mjs`。
+- **端到端**（预置/真实路径都跑过）：
+  - `codex`：启动器 → `codex-cli 0.162.1`；再跑 `exec` → **打到 api.openai.com 得 401**（假密钥）
+  - `grok`：启动器 → `grok 0.1.220`
+  - `copilot`：npm `--libc=glibc` + 直调平台二进制 → `GitHub Copilot CLI 1.0.98`（此前用同一二进制跑出过真实回复）
+  - `gemini`：首装 → `0.64.0`；二次调用 `--help` 正常；**对照组**（绕过启动器）复现 clipboardy 的 Termux 报错
+  - `vibe` → `vibe 2.26.1`；`q` → `q 1.19.7`；`qwen` → `0.25.1`；`kimi` → `2.2.0`；`codebuddy` → `2.167.0`
+  - `agy`：安装器用**真实 176 MB 官方包**跑通（sha512 核对），改动一个字节即失败且零落地
+- 取件器 `fetch.py`：zip 整包/成员、deb 成员、幂等、**篡改即失败** 都单独测过。
+
+## 已知取舍
+
+- `fetch.py` 在 copilot / vibe / amazon-q 三个配方里各有一份副本（配方设计上要自包含）。
+  如果这个形态被接受，值得抽成一个公共的 `ai-cli-runtime` 组件，其它配方 `requires` 它。
+- 各家的**交互式 TUI 完整体验**尚未逐项验证（本仓库只验到"链路全通/命令能跑"）。
