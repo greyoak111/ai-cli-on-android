@@ -31,10 +31,12 @@ Node 26 / Python 3.14 / 一套 glibc 运行时（`$PREFIX/glibc`）。
 | Mistral | Vibe 2.26.1 | PyInstaller / glibc | ✅ 打到真实 API | 加载器 + 补 `libz` |
 | Amazon | Q Developer CLI 1.19.7 | glibc 动态 + C++ | ✅ 到认证步骤 | 加载器 + C++ 库 |
 | 智谱 Z.ai | 无独立 CLI；官方 helper | Node | ✅ helper 可跑 | 无 |
-| DeepSeek | **无官方 CLI** | — | — | 只能把 API 挂进别的 CLI |
+| DeepSeek | **DeepSeek Harness `dsh` 0.2.0-rc.2** | Node + 3 个原生附件 | ✅ **跑完整回合**（本地 mock 端点） | 原生附件走 JS 回退；硬链接改独占创建 |
 
 「到认证步骤 / 打到真实 API」= 程序完整启动、读配置、发起网络请求并被服务端正常应答
-（用假密钥时得到 401/400，即链路全通）。逐家细节见 [`docs/survey.md`](docs/survey.md)。
+（用假密钥时得到 401/400，即链路全通）。DeepSeek 那行更进一步：拿本地 mock 端点
+**跑完了一整个 agent 回合**（含系统提示、文件策略、工具清单，见 survey 第 14 节）。
+逐家细节见 [`docs/survey.md`](docs/survey.md)。
 
 ## 三条主线索
 
@@ -44,6 +46,7 @@ Node 26 / Python 3.14 / 一套 glibc 运行时（`$PREFIX/glibc`）。
 |---|---|---|
 | 官方安卓构建 | 内核直接加载 | 无 |
 | Node / 纯脚本 | 有 node 就行 | 平台判定的环境变量 |
+| Node/Python + 原生附件 | 主程序直接跑 | 附件多半没有 android 产物：JS 回退 / FFI 顶替 / 自己编 |
 | 静态二进制（musl/Go） | 内核直接加载 | 联网要过 DNS 与 CA 两关 |
 | glibc 动态 | 不行（安卓没有 `/lib/ld-linux-aarch64.so.1`） | 换 glibc 加载器 |
 | musl 动态 | 不行（没有 `/lib/ld-musl-aarch64.so.1`） | 换 musl 加载器 |

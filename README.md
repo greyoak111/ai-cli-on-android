@@ -33,10 +33,12 @@ Node 26 / Python 3.14 / a glibc runtime (`$PREFIX/glibc`).
 | Mistral | Vibe 2.26.1 | PyInstaller / glibc | ✅ reached the real API | loader + `libz` |
 | Amazon | Q Developer CLI 1.19.7 | glibc + C++ | ✅ up to auth | loader + C++ libs |
 | Z.ai (Zhipu) | no standalone CLI | — | helper works | — |
-| DeepSeek | **no official CLI** | — | — | point another CLI at its API |
+| DeepSeek | **DeepSeek Harness `dsh` 0.2.0-rc.2** | Node + 3 native addons | ✅ **completed a full turn** (local mock endpoint) | JS fallbacks for the addons; hard link → exclusive create |
 
 "up to auth" = starts fully, reads config, makes the network call and is answered by the server
-(with a dummy key you get 401/400 — the pipeline is complete). Per-CLI detail: [`docs/survey.md`](docs/survey.md).
+(with a dummy key you get 401/400 — the pipeline is complete). The DeepSeek row goes one step further:
+a whole agent turn was run against a local mock endpoint, system prompt, file policy and tool list
+included (see section 14 of [`docs/survey.md`](docs/survey.md)).
 
 ## Three things to understand
 
@@ -47,6 +49,7 @@ a different treatment:
 |---|---|---|
 | Official Android build | kernel loads it | none |
 | Node / plain script | yes, with node | platform checks inside the program |
+| Node/Python + native addons | the main program does | the addons ship no android build: JS fallback / FFI / build it yourself |
 | Static binary (musl/Go) | kernel loads it | needs DNS + CA to reach the network |
 | glibc, dynamic | no (no `/lib/ld-linux-aarch64.so.1`) | swap in a glibc loader |
 | musl, dynamic | no (no `/lib/ld-musl-aarch64.so.1`) | swap in a musl loader |

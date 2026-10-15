@@ -198,12 +198,66 @@ $ grep… q chat "say hi" → error: You are not logged in, please log in with `
 
 ---
 
-## 13. 智谱 Z.ai / DeepSeek
+## 13. 智谱 Z.ai — ➖
 
-- **智谱**：没有独立 CLI。官方定位是"配到别人的 CLI 里用"；官方 helper
-  `npx @z_ai/coding-helper` 本机可跑（`--help` 正常）。
-- **DeepSeek**：没有官方 CLI。可行路径是把它的 Anthropic 兼容端点挂进别的 CLI
-  （`ANTHROPIC_BASE_URL` + 密钥），或走 SDK。
+没有独立 CLI。官方定位是"配到别人的 CLI 里用"；官方 helper
+`npx @z_ai/coding-helper` 本机可跑（`--help` 正常）。
+
+---
+
+## 14. DeepSeek · DeepSeek Harness（`dsh`）0.2.0-rc.2 — ✅ 完整跑通一个 agent 回合
+
+**来源**：npm `@deepseek-ai/dsh`（MIT；源码 `github.com/deepseek-ai/deepseek-harness`，口号
+"Everything is a Plugin"）。纯 Node 程序，**没有 linux-arm64 预编译主程序**。
+
+**形态**：Node 程序 + 三个 **Node-API 原生附件**。主程序本身完全跨平台，
+卡点全在附件上 —— 它们只发布 darwin / linux-x64 / linux-arm64 / win32 的产物，**没有 android**。
+
+**它为什么比其余各家都"容易进来"**：不换加载器（不碰 bionic/glibc 之争）、不要 seccomp 垫片、
+不要 DNS 桥、不要 CA 包 —— 那几类坑它一个都不占。适配只落在"安卓没有的那几个原生附件"上，
+而且**每一处都有不需要编译的替代路径**：
+
+| 上游原生件 | 用途 | Android 上的症状 | 不编译的替代 |
+|---|---|---|---|
+| `node-addon-require-builtin` | 打开 Node 内部模块（插件加载器要用） | `dsh: host preparation failed: No usable native binding found for node-addon-require-builtin-android-arm64 (auto)` —— **连 web profile 都起不来** | 启动 node 时加 `--expose-internals`，`require("internal/modules/…")` 直接可用；在 JS 里做一层回退即可（上游源码公开且 MIT，也能自己编：一条 clang 命令） |
+| `@deepseek-ai/node-addon-system`（flock） | 会话文件的非阻塞互斥锁 | 先 `flock is not supported on android-arm64`（纯 JS 平台判定）；放行后仍加载不了：glibc 版要 `libc.so.6`、musl 版要 `__errno_location`，bionic 都没有 | `flock(2)` 在 bionic 里**是有的** → 改 JS 用 FFI 调它，或退化为空锁 |
+| `koffi`（FFI） | 只在 win32 路径用到 | `npm install` 时编译失败（`base.cc:2967` 的 `statx`，见 pitfalls 第 9 条） | `npm install --ignore-scripts` 就行 —— 安卓路径根本不需要它 |
+
+另有两处不是"加载"，是**安卓的内核/SELinux 行为**：
+
+| 症状 | 原因 | 改法 |
+|---|---|---|
+| `EACCES: permission denied, link '…tmp' -> '…session.v4.jsonl.zstd'` | 安卓 SELinux 禁止应用私有目录里建硬链接（详见 pitfalls 第 10 条） | 上游用 `link()` 做"独占发布"（靠 EEXIST 判断目标已存在），**不能**简单换 rename（会静默覆盖）→ 改成 `open(path, "wx")` 独占创建 + 写入，语义等价 |
+| 目录 fsync 返回 `EINVAL` / `ENOTSUP` | 部分挂载点不支持目录 fsync | 视为尽力而为，不因此判定"会话发布失败" |
+
+**实测证据**（Android 14 / Node 26.4）：
+
+```
+$ npm install --ignore-scripts --os=linux --cpu=arm64 @deepseek-ai/dsh
+$ dsh --version                        → 0.2.0-rc.2
+$ dsh web                              → dsh web: http://127.0.0.1:3080/?token=…
+$ curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3080/   → 401（无 token）
+$ curl … "http://127.0.0.1:3080/?token=…"                          → 303（会话建立）
+$ dsh --profile headless "reply with the word ok"     # DEEPSEEK_BASE_URL 指向本地 mock
+                                       → OK-FROM-LOCAL-MOCK      （rc=0，stderr 为空）
+```
+
+这条 headless 是本仓库里**唯一跑完整回合**的一例：本地 mock 端点上收到的请求是
+`POST /v1/messages`、`user-agent: deepseek-harness/0.2.0-rc.2`、`model: deepseek-flash`、
+请求体 53 KB，system 里是完整的 agent 提示词，运行上下文里的文件策略已经落到会话工作区
+（`workspace-write` + 实际目录）、工具清单齐备 —— 说明插件树、内部模块加载、沙箱策略、
+会话持久化这一整套在安卓上都是活的。（别家只验到"打到真实 API 得 401"，这条验到了回合结束。）
+
+**社区已有现成的适配补丁集**：`woaiys3/deepseek-harness-android-app` 的
+`dsh-patches/overlay-020/`（12 个文件，覆盖上面全部四处，**零原生编译**）。本机是把这套补丁
+原样应用（外加 `node --expose-internals` 启动）后跑通的；该项目的归纳是"4 处需要适配 Android 的
+源码改动"：subprocess（node-pty 编不了）、attachment（sharp + 硬链接）、bash 沙箱、
+会话持久化（硬链接）。
+
+**对照实验**：不用补丁集、改走"自己编原生件"也能通 —— 编出
+`node-addon-require-builtin` 的 android-arm64 产物（公开源码，一条 clang 命令）+
+用 koffi 的**真 flock** 替掉空锁，headless 同样得到 `OK-FROM-LOCAL-MOCK`。
+两条路都验过；差别只是"要不要在本机编译"。
 
 ---
 

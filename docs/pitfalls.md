@@ -142,3 +142,88 @@ SSL_CERT_FILE=/path/to/cert.pem <程序> …
 表现为 `--version` 正常、`--help` 崩（前者不导入它）。
 
 **排查手法**：看报错栈指向哪个模块，然后 `rg` 那个模块里所有 `platform` / `android` 判断。
+
+---
+
+## 9. 给安卓编 C/C++：`statx` 报错其实是 API level 的锅
+
+**症状**：编译一个 Linux 上很正常的 cmake 项目，卡在这么一行：
+
+```
+error: cannot initialize a member subobject of type '__u32' (aka 'unsigned int')
+       with an lvalue of type 'const char *'
+    |     if (statx(fd, pathname, stat_flags, stat_mask, &sxb) < 0) {
+error: invalid operands to binary expression ('statx' and 'int')
+```
+
+看着完全不像"函数没声明"，像类型不匹配。
+
+**原因**：C++ 里 `struct statx` 会顺带把 `statx` 变成一个**类型名**；
+而 bionic 只在足够高的 API level 才声明同名**函数** `statx()`。
+本机 clang 默认目标是 `aarch64-linux-android24`（`__ANDROID_MIN_SDK_VERSION__ = 24`），
+函数声明被门控掉 → `statx(fd, pathname, …)` 被解析成"构造一个 statx 临时对象"，于是报出上面那堆怪话。
+
+**别用 `-D__ANDROID_API__=NN` 去抬**：libc++ 只看 `__ANDROID_API__`，bionic 自己的头文件看
+`__ANDROID_MIN_SDK_VERSION__`，两边判定不一致，会立刻冒出一批新的"未声明标识符"
+（实测：`use of undeclared identifier 'pthread_cond_clockwait'`）。
+
+**解法 —— 抬 target，让两边一致**：
+
+```sh
+CFLAGS="--target=aarch64-linux-android34" CXXFLAGS="--target=aarch64-linux-android34" <原构建命令>
+```
+
+实测：koffi 3.1.1（DeepSeek Harness 的依赖）的 cmake 构建，从 3 个 error 到 0 error。
+设备是 Android 14 = API 34，抬到 34 是安全的。
+
+---
+
+## 10. 应用私有目录里**不能建硬链接**（SELinux）
+
+**症状**：`EACCES: permission denied, link '…tmp' -> '…final'`，而同一目录下 `mv`（rename）一切正常。
+
+**手工验证**：
+
+```sh
+$ echo x > a; ln a b
+ln: failed to create hard link 'b' => 'a': Permission denied
+```
+
+`/data/user/0/<包名>/…` 与 `~` 下都一样；文件系统是 f2fs，**本身支持**硬链接 ——
+是 Android 的 SELinux 策略不允许应用在自己的数据目录里建硬链接。
+
+**语义陷阱**：用 `link()` 的程序往往是在做"**独占发布**"——link 在目标已存在时报 `EEXIST`，
+程序据此判断"这一代已经写过了（返回 false）"。所以**不能**图省事换成 rename：
+rename 会静默覆盖，把独占语义变成"后来者赢"。
+
+**等价改法**：`open(path, "wx")`（独占创建，目标已存在时同样抛 `EEXIST`）+ 写入 + 落权限位。
+
+实测：DeepSeek Harness 的会话持久化（`session.v4.jsonl.zstd` 的发布路径）。
+
+---
+
+## 11. Node 原生附件在安卓上没有产物 —— 三条替代路
+
+**症状**：`host preparation failed: No usable native binding found for
+node-addon-require-builtin-android-arm64 (auto)`。加载器按 `process.platform` 算出
+`…-android-arm64` 后缀去找可选依赖，而上游只发布了 darwin / linux / win32 → 必然找不到，
+且这条依赖常常是**没有 try/catch 的硬依赖**，直接致命。
+
+三条路，代价从低到高：
+
+1. **改 JS，用 Node 自带能力顶替。** `--expose-internals` 下 `require("internal/modules/…")`
+   拿到的就是原生件要掏的那批内部模块（实测：某 agent 运行时校验的 6 个接口全在）。
+   原生件只是"更快/更稳的入口"，不是唯一入口。
+2. **用程序已有的 FFI 重写。** 如果程序本来就依赖 koffi 之类能调 libc 的 FFI，
+   系统调用层面的原生件可以直接用 FFI 重写（实测：`flock(2)`，语义完全一致；
+   顺带一个好处 —— flock 由内核在进程退出时自动释放，**不会有陈旧锁文件**）。
+3. **自己编。** Node-API 附件不依赖 node-gyp：一条 clang 命令即可，
+   头文件用 `$PREFIX/include/node`（Termux 的 node 自带 `node.h`）：
+
+   ```sh
+   c++ -shared -fPIC -pthread -std=c++17 -DNAPI_VERSION=9 \
+       -I "$PREFIX/include/node" -I node_modules/node-addon-api \
+       <sources...> -o build/napi/napi-v9-android-arm64/<名字>.node
+   ```
+
+   实测：245 KB、零警告、加载即用（源码公开、MIT 的情况下这条路最干净）。

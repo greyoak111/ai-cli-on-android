@@ -12,6 +12,7 @@ head -1 <脚本>                          # 脚本的看 shebang
 |---|---|---|
 | `for Android … /system/bin/linker64` | 官方 bionic 构建 | A |
 | 文本 / shebang 是 node、python | 脚本 | B |
+| 是 Node/Python 程序，但带 `.node` 附件 | 脚本 + 原生附件 | B / G |
 | `statically linked` | 静态 | C |
 | `interpreter /lib/ld-linux-aarch64.so.1` | glibc 动态 | D |
 | `interpreter /lib/ld-musl-aarch64.so.1` | musl 动态 | E |
@@ -78,6 +79,22 @@ PyInstaller 的 onedir 程序在启动时会**再启动一次**自己，那一�
 
 实测：Mistral Vibe 的 `libz.so.1`。
 
+## G. 脚本 + 原生附件（Node 的 `.node` / Python 的 `.so`）—— 附件才是卡点
+
+主程序跨平台，附件不是：上游多半只发 darwin / linux / win32，**没有 android**。
+先看它有没有 android 产物（`npm view <平台包>` 或看 `optionalDependencies`），
+再按代价从低到高试三条路（详见 pitfalls 第 11 条）：
+
+1. 改 JS 用 Node 自带能力顶替（`--expose-internals` 下 `require("internal/modules/…")`）；
+2. 用程序已有的 FFI（koffi 之类）重写系统调用层面的附件；
+3. 自己编 —— Node-API 附件是一条 clang 命令，头文件在 `$PREFIX/include/node`。
+
+如果附件是"平台包"（`<包名>-<平台>-<架构>`）：装的时候要 `--os=linux --cpu=arm64`
+（必要时再加 `--libc=glibc`），见 pitfalls 第 1 / 1b 条；但**平台包本身没有 android 版时，
+这些参数也救不了** —— 那属于上面三条路。
+
+实测：DeepSeek Harness（三个附件都撞上了，最终零原生编译跑通）。
+
 ## 一页速查
 
 | 形态 | 启动 | 联网 | 一句话 |
@@ -88,3 +105,4 @@ PyInstaller 的 onedir 程序在启动时会**再启动一次**自己，那一�
 | D glibc | 加载器 | 正常 | 常缺 C++/zlib |
 | E musl | 加载器 | 要修 | Alpine musl + enosys |
 | F PyInstaller | 加载器 | 正常 | 缺库要塞 `_internal/` |
+| G 脚本 + 原生附件 | 直接 | 正常 | 卡在附件有没有 android 产物 |
