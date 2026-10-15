@@ -75,7 +75,7 @@ tools/musl-run     通用 musl 启动器（Alpine 加载器 + enosys）
 tools/probe.sh     探测脚本：一条命令出结果，输出落日志
 tools/dnsproxy.py  给静态二进制用的本地 DNS 桥（仅监听回环）
 tools/README.md    工具用法 + 额外库（libz / libstdc++ / musl）从哪来
-recipes/           把实测过的 CLI 做成 cccodroid 组件市场的配方（启动器型，10 个，草稿）
+recipes/           把这批 CLI 做成组件的示范（启动器型，10 个）——**方法论，不是路线图**，不计划上架
 evidence/          上面那张表背后的真实运行片段（原话摘录，可复核）
 ```
 

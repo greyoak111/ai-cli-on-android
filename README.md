@@ -101,13 +101,14 @@ glibc family (Copilot / Amazon Q / Vibe):
 tools/glibc-run -L ./libs <program> --version
 ```
 
-## Recipes (component market)
+## Recipes — a worked example, not a roadmap
 
-`recipes/` turns the tested CLIs into [cccodroid](https://github.com/greyoak111/cccodroid) component-market
-recipes — installable from the app's Extensions page, each shipping a skill so the agent knows how to drive it.
-The pattern is *launcher style*: no vendor binary is bundled or redistributed; the launcher fetches the
-program from the vendor's own channel on first run (npm integrity, or pinned URL + sha256), and carries the
-Android-specific fixes (DNS bridge, CA, loader, missing libs) inside itself.
+`recipes/` shows what it would take to package each tested CLI as a
+[cccodroid](https://github.com/greyoak111/cccodroid) component-market recipe (launcher style: nothing
+redistributed; the launcher fetches from the vendor's own channel on first run and carries the
+Android-specific fixes inside itself). It is kept as **methodology** — a demonstration of the pattern and
+of every pitfall along the way — not as a plan to ship these in the market. The project's focus stays on
+cccodroid itself.
 
 ## License and notices
 
