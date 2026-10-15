@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "qwen-code",
+  "kind": "termux",
+  "revision": 1,
+  "version": "0.25.1",
+  "name": { "zh": "Qwen Code（阿里）", "en": "Qwen Code (Alibaba)" },
+  "desc": {
+    "zh": "通义千问官方的终端编程代理：读代码、改文件、跑命令，支持 headless 与 MCP。启动器型组件——程序由首次运行时从官方 npm 取到你的私有目录。",
+    "en": "Alibaba's official terminal coding agent. Launcher-style component: the program is fetched from the official npm on first run."
+  },
+  "roots": ["nodejs"],
+  "bin": ["qwen"],
+  "selftest": "qwen --version",
+  "needs": { "shizuku": false, "display": false, "gpu": false },
+  "category": "ai",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/QwenLM/qwen-code",
+  "maintainers": ["greyoak111"],
+  "files": {
+    "usr/bin/qwen": { "src": "bin/qwen", "mode": "755" }
+  },
+  "notes": "启动器型：usr/bin/qwen 首次运行时用 npm 把 @qwen-code/qwen-code 钉版本装进 ~/.local/share/cccodroid/ai-cli/qwen-code。npm 需 --os=linux --cpu=arm64（安卓上 process.platform='android'）。真机实测（Android 14 / aarch64）：--version 0.25.1、--help 85 行、非交互报 'No auth type is selected'（要选认证方式），链路正常。"
+}

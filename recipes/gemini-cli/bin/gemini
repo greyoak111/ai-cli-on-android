@@ -1,0 +1,35 @@
+#!{{PREFIX}}/bin/bash
+# gemini — Google Gemini CLI（cccodroid 组件 · 启动器型）
+#
+#   和官方一样的用法：gemini / gemini -p "…" / gemini --help
+#
+# 组件本身不含任何厂商二进制：首次运行从官方 npm 装到用户私有目录，之后直接复用。
+#
+# 环境变量：
+#   CCODROID_AI_CLI_HOME        安装根目录（默认 ~/.local/share/cccodroid/ai-cli）
+#   CCODROID_GEMINI_VERSION     覆盖配方钉住的版本
+set -e
+
+PREFIX="${CCODROID_PREFIX:-${PREFIX:-}}"
+[ -n "$PREFIX" ] || PREFIX="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+PKG="@google/gemini-cli"
+VER="${CCODROID_GEMINI_VERSION:-0.64.0}"
+HOME_DIR="${HOME:-$PREFIX/../home}"
+ROOT="${CCODROID_AI_CLI_HOME:-$HOME_DIR/.local/share/cccodroid/ai-cli}/gemini-cli"
+BIN="$ROOT/node_modules/.bin/gemini"
+
+if [ ! -x "$BIN" ]; then
+  echo "gemini: 首次运行，从官方 npm 装 $PKG@$VER（只有这一次，装在 $ROOT）" >&2
+  mkdir -p "$ROOT"
+  # --os=linux --cpu=arm64：安卓上 process.platform 是 android，不加这两个参数
+  # npm 会按 android 匹配、把平台相关的可选依赖静默跳过
+  "$PREFIX/bin/npm" install --prefix "$ROOT" --no-audit --no-fund \
+    --os=linux --cpu=arm64 "$PKG@$VER" >&2
+fi
+
+# 它捆绑的 clipboardy 在**模块加载期**检查 process.platform === 'android' 时必须有这个变量，
+# 否则直接抛 "You need to install Termux for this module to work on Android"
+export TERMUX_VERSION="${TERMUX_VERSION:-1}"
+
+exec "$BIN" "$@"

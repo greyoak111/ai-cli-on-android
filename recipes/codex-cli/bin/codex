@@ -1,0 +1,55 @@
+#!{{PREFIX}}/bin/bash
+# codex — Codex CLI（cccodroid 组件 · 启动器型 + DNS 桥）
+#
+#   和官方一样的用法：codex / codex exec "…" / codex --help
+#
+# 组件本身不含任何厂商二进制：首次运行从官方 npm 装到用户私有目录。
+#
+# 它的程序是全静态 musl 二进制，在安卓上必须补两样才联得上网：
+#   1) DNS：静态 musl 的解析器只读 /etc/resolv.conf，安卓没有这个文件
+#      → 拉起组件自带的本地桥（只监听 127.0.0.1），域名由 Python 解析
+#   2) CA ：安卓没有 /etc/ssl/certs → SSL_CERT_FILE 指工具包自带的 CA 包
+#
+# 环境变量：
+#   CCODROID_AI_CLI_HOME          安装根目录（默认 ~/.local/share/cccodroid/ai-cli）
+#   CCODROID_DNS_BRIDGE_PORT      桥的端口（默认 18080；多个静态 CLI 可共用同一个桥）
+#   CCODROID_CODEX_VERSION        覆盖配方钉住的版本
+set -e
+
+PREFIX="${CCODROID_PREFIX:-${PREFIX:-}}"
+[ -n "$PREFIX" ] || PREFIX="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+PKG="@openai/codex"
+VER="${CCODROID_CODEX_VERSION:-0.162.1}"
+HOME_DIR="${HOME:-$PREFIX/../home}"
+ROOT="${CCODROID_AI_CLI_HOME:-$HOME_DIR/.local/share/cccodroid/ai-cli}/codex-cli"
+BIN="$ROOT/node_modules/.bin/codex"
+
+if [ ! -x "$BIN" ]; then
+  echo "codex: 首次运行，从官方 npm 装 $PKG@$VER（只有这一次，装在 $ROOT）" >&2
+  mkdir -p "$ROOT"
+  # --os=linux --cpu=arm64：安卓上 process.platform 是 android，不加会跳过平台包
+  "$PREFIX/bin/npm" install --prefix "$ROOT" --no-audit --no-fund \
+    --os=linux --cpu=arm64 "$PKG@$VER" >&2
+fi
+
+# ── DNS 桥 ────────────────────────────────────────────────────────────
+PORT="${CCODROID_DNS_BRIDGE_PORT:-18080}"
+BRIDGE="$PREFIX/share/cccodroid/components/codex-cli/dnsproxy.py"
+bridge_up() { (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null; }
+
+if [ -f "$BRIDGE" ] && ! bridge_up; then
+  nohup "$PREFIX/bin/python3" "$BRIDGE" "$PORT" >"$ROOT/dnsproxy.log" 2>&1 &
+  sleep 1
+fi
+if bridge_up; then
+  export HTTPS_PROXY="${HTTPS_PROXY:-http://127.0.0.1:$PORT}"
+  export HTTP_PROXY="${HTTP_PROXY:-http://127.0.0.1:$PORT}"
+fi
+
+# ── CA 包 ─────────────────────────────────────────────────────────────
+if [ -z "${SSL_CERT_FILE:-}" ] && [ -f "$PREFIX/etc/tls/cert.pem" ]; then
+  export SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem"
+fi
+
+exec "$BIN" "$@"

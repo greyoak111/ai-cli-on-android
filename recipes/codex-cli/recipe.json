@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "codex-cli",
+  "kind": "termux",
+  "revision": 1,
+  "version": "0.162.1",
+  "name": { "zh": "Codex CLI（OpenAI）", "en": "Codex CLI (OpenAI)" },
+  "desc": {
+    "zh": "OpenAI 官方的终端编程代理：读代码、改文件、跑命令，支持 headless（codex exec）。启动器型组件，并自带一个本地 DNS 桥——它的二进制是全静态的，在安卓上必须过 DNS 与 CA 两关才能联网。",
+    "en": "OpenAI's official terminal coding agent. Launcher-style component bundled with a local DNS bridge: its binary is fully static and needs the DNS + CA workarounds to reach the network on Android."
+  },
+  "roots": ["nodejs"],
+  "bin": ["codex"],
+  "selftest": "codex --version",
+  "needs": { "shizuku": false, "display": false, "gpu": false },
+  "category": "ai",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/openai/codex",
+  "maintainers": ["greyoak111"],
+  "files": {
+    "usr/bin/codex": { "src": "bin/codex", "mode": "755" },
+    "usr/share/cccodroid/components/codex-cli/dnsproxy.py": { "src": "bin/dnsproxy.py", "mode": "755" }
+  },
+  "notes": "启动器型：usr/bin/codex 首次运行时用 npm 把 @openai/codex 钉版本装进 ~/.local/share/cccodroid/ai-cli/codex-cli（平台包 npm:@openai/codex@<ver>-linux-arm64 会自动带上，二进制 254 MB，全静态）。**安卓特有的两关**（都在启动器里处理）：(1) 静态 musl 的解析器只读 /etc/resolv.conf，安卓没有 → 启动器拉起组件自带的 dnsproxy.py（只监听 127.0.0.1 的 CONNECT 代理，域名由 Python 走系统解析器解析），并导出 HTTPS_PROXY/HTTP_PROXY；(2) 没有 /etc/ssl/certs → 导出 SSL_CERT_FILE 指向工具包自带的 CA 包（$PREFIX/etc/tls/cert.pem）。真机实测（Android 14 / aarch64）：--version 0.162.1、--help 136 行；带桥与 CA 后 codex exec 打到 api.openai.com 返回 401（假密钥，链路全通）。headless 需 --skip-git-repo-check 或处在 git 仓库里。selftest 首次执行会联网安装，之后是本地调用。"
+}

@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "kimi-code",
+  "kind": "termux",
+  "revision": 1,
+  "version": "2.2.0",
+  "name": { "zh": "Kimi Code（Moonshot）", "en": "Kimi Code (Moonshot)" },
+  "desc": {
+    "zh": "月之暗面官方的终端代理：读代码、改文件、跑命令；可切换 DeepSeek / Qwen / GLM 等 provider。启动器型组件——程序由首次运行时从官方 npm 取到你的私有目录。",
+    "en": "Moonshot's official terminal agent, with switchable providers (DeepSeek / Qwen / GLM). Launcher-style component: the program is fetched from the official npm on first run."
+  },
+  "roots": ["nodejs"],
+  "bin": ["kimi"],
+  "selftest": "kimi --version",
+  "needs": { "shizuku": false, "display": false, "gpu": false },
+  "category": "ai",
+  "license": "MIT",
+  "homepage": "https://github.com/MoonshotAI/kimi-cli",
+  "maintainers": ["greyoak111"],
+  "files": {
+    "usr/bin/kimi": { "src": "bin/kimi", "mode": "755" }
+  },
+  "notes": "启动器型：usr/bin/kimi 首次运行时用 npm 把 @moonshot-ai/kimi-code 钉版本装进 ~/.local/share/cccodroid/ai-cli/kimi-code。npm 需 --os=linux --cpu=arm64。真机实测（Android 14 / aarch64）：--version 2.2.0、--help 53 行、非交互报 'No model configured. Run `kimi` and use /login'（要先登录或写 default_model），链路正常。注：官方 install.sh 另发 glibc 原生二进制（走 Alpine/musl 会明确拒绝），本组件走 npm 的 Node 版，形态最简单。"
+}

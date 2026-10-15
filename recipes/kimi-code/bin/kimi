@@ -1,0 +1,29 @@
+#!{{PREFIX}}/bin/bash
+# kimi — Kimi Code（cccodroid 组件 · 启动器型）
+#
+#   和官方一样的用法：kimi / kimi -p "…" / kimi provider list
+#
+# 组件本身不含任何厂商二进制：首次运行从官方 npm 装到用户私有目录，之后直接复用。
+#
+# 环境变量：
+#   CCODROID_AI_CLI_HOME      安装根目录（默认 ~/.local/share/cccodroid/ai-cli）
+#   CCODROID_KIMI_VERSION     覆盖配方钉住的版本
+set -e
+
+PREFIX="${CCODROID_PREFIX:-${PREFIX:-}}"
+[ -n "$PREFIX" ] || PREFIX="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+PKG="@moonshot-ai/kimi-code"
+VER="${CCODROID_KIMI_VERSION:-2.2.0}"
+HOME_DIR="${HOME:-$PREFIX/../home}"
+ROOT="${CCODROID_AI_CLI_HOME:-$HOME_DIR/.local/share/cccodroid/ai-cli}/kimi-code"
+BIN="$ROOT/node_modules/.bin/kimi"
+
+if [ ! -x "$BIN" ]; then
+  echo "kimi: 首次运行，从官方 npm 装 $PKG@$VER（只有这一次，装在 $ROOT）" >&2
+  mkdir -p "$ROOT"
+  "$PREFIX/bin/npm" install --prefix "$ROOT" --no-audit --no-fund \
+    --os=linux --cpu=arm64 "$PKG@$VER" >&2
+fi
+
+exec "$BIN" "$@"

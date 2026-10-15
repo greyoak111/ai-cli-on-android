@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "codebuddy-code",
+  "kind": "termux",
+  "revision": 1,
+  "version": "2.167.0",
+  "name": { "zh": "CodeBuddy Code（腾讯）", "en": "CodeBuddy Code (Tencent)" },
+  "desc": {
+    "zh": "腾讯云 CodeBuddy 的命令行代理：读代码、改文件、跑命令，支持 headless。启动器型组件——程序由首次运行时从官方 npm 取到你的私有目录。",
+    "en": "Tencent Cloud CodeBuddy's command-line agent. Launcher-style component: the program is fetched from the official npm on first run."
+  },
+  "roots": ["nodejs"],
+  "bin": ["codebuddy"],
+  "selftest": "codebuddy --version",
+  "needs": { "shizuku": false, "display": false, "gpu": false },
+  "category": "ai",
+  "license": "Proprietary",
+  "homepage": "https://www.codebuddy.ai",
+  "maintainers": ["greyoak111"],
+  "files": {
+    "usr/bin/codebuddy": { "src": "bin/codebuddy", "mode": "755" }
+  },
+  "notes": "启动器型：usr/bin/codebuddy 首次运行时用 npm 把 @tencent-ai/codebuddy-code 钉版本装进 ~/.local/share/cccodroid/ai-cli/codebuddy-code。npm 需 --os=linux --cpu=arm64。**许可**：npm 包写 'SEE LICENSE IN README.md'（专有）——正因为如此，组件只做启动器、不打包它的任何文件。真机实测（Android 14 / aarch64）：--version 2.167.0、--help 105 行、非交互报 'Authentication required. Please use /login'，链路正常。"
+}

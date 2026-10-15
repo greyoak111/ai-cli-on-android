@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "gemini-cli",
+  "kind": "termux",
+  "revision": 1,
+  "version": "0.64.0",
+  "name": { "zh": "Gemini CLI（Google）", "en": "Gemini CLI (Google)" },
+  "desc": {
+    "zh": "Google 官方的终端 AI 代理：读代码、改文件、跑命令，支持多模态与 MCP。启动器型组件——程序由首次运行时从官方 npm 取到你的私有目录，组件本身不含厂商二进制。",
+    "en": "Google's official terminal AI agent: reads code, edits files, runs commands, multimodal and MCP. Launcher-style component — the program is fetched from the official npm on first run, no vendor binaries are bundled."
+  },
+  "roots": ["nodejs"],
+  "bin": ["gemini"],
+  "selftest": "gemini --version",
+  "needs": { "shizuku": false, "display": false, "gpu": false },
+  "category": "ai",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/google-gemini/gemini-cli",
+  "maintainers": ["greyoak111"],
+  "files": {
+    "usr/bin/gemini": { "src": "bin/gemini", "mode": "755" }
+  },
+  "notes": "启动器型（launcher）：usr/bin/gemini 是一个薄脚本，首次运行时用 npm 把 @google/gemini-cli 钉版本装进 ~/.local/share/cccodroid/ai-cli/gemini-cli，之后直接 exec。为什么不用打包型：见 recipes/README.md（许可与体积）。两个安卓特有处理：npm 要 --os=linux --cpu=arm64（安卓上 process.platform 是 'android'，不加参数平台包会被静默跳过）；运行时要 export TERMUX_VERSION（它捆绑的 clipboardy 在模块加载期检查，缺了会抛 'You need to install Termux'，表现为 --version 正常、--help 直接崩）。selftest 首次执行会联网安装（约 1 分钟），之后是本地调用。真机实测（Android 14 / aarch64）：--version 0.64.0、--help、headless 打到 generativelanguage.googleapis.com 返回 400 API_KEY_INVALID（链路全通）。"
+}

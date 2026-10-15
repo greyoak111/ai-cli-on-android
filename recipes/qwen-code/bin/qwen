@@ -1,0 +1,30 @@
+#!{{PREFIX}}/bin/bash
+# qwen — Qwen Code（cccodroid 组件 · 启动器型）
+#
+#   和官方一样的用法：qwen / qwen -p "…" / qwen --help
+#
+# 组件本身不含任何厂商二进制：首次运行从官方 npm 装到用户私有目录，之后直接复用。
+#
+# 环境变量：
+#   CCODROID_AI_CLI_HOME      安装根目录（默认 ~/.local/share/cccodroid/ai-cli）
+#   CCODROID_QWEN_VERSION     覆盖配方钉住的版本
+set -e
+
+PREFIX="${CCODROID_PREFIX:-${PREFIX:-}}"
+[ -n "$PREFIX" ] || PREFIX="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+PKG="@qwen-code/qwen-code"
+VER="${CCODROID_QWEN_VERSION:-0.25.1}"
+HOME_DIR="${HOME:-$PREFIX/../home}"
+ROOT="${CCODROID_AI_CLI_HOME:-$HOME_DIR/.local/share/cccodroid/ai-cli}/qwen-code"
+BIN="$ROOT/node_modules/.bin/qwen"
+
+if [ ! -x "$BIN" ]; then
+  echo "qwen: 首次运行，从官方 npm 装 $PKG@$VER（只有这一次，装在 $ROOT）" >&2
+  mkdir -p "$ROOT"
+  # --os=linux --cpu=arm64：见 recipes/README.md（安卓上 npm 的平台匹配）
+  "$PREFIX/bin/npm" install --prefix "$ROOT" --no-audit --no-fund \
+    --os=linux --cpu=arm64 "$PKG@$VER" >&2
+fi
+
+exec "$BIN" "$@"
