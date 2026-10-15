@@ -1,0 +1,39 @@
+#!/bin/bash
+# glibc-run — 用指定的 glibc 加载器运行 Linux arm64（glibc）程序
+#
+#   glibc-run <程序> [参数...]
+#   glibc-run -L <目录> <程序> [参数...]      # 追加库搜索目录（可重复）
+#
+# 环境变量：
+#   GLIBC_ROOT        glibc 根目录（默认 $PREFIX/glibc，需含 lib/ld-linux-aarch64.so.1）
+#   ENOSYS_SO         seccomp 垫片（默认 $PREFIX/lib/seccomp-enosys.so；不存在则跳过）
+#   GLIBC_RUN_NO_PRELOAD=1   不加载垫片
+#
+# 为什么不是一个简单的 exec：
+#   - 安卓上 bionic 的 LD_PRELOAD（termux-exec 之类）会被继承进 glibc 进程，
+#     它按 bionic 的名字要 libc.so，而 glibc 目录里 libc.so 是链接脚本 → invalid ELF header
+#   - 会自我重执行（re-exec）的 CLI 需要正确的 argv[0]，否则报 "--binary-version" 之类的怪错
+set -e
+
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+GROOT="${GLIBC_ROOT:-$PREFIX/glibc}"
+LD="$GROOT/lib/ld-linux-aarch64.so.1"
+PRELOAD="${ENOSYS_SO:-$PREFIX/lib/seccomp-enosys.so}"
+
+[ -x "$LD" ] || { echo "glibc-run: 找不到 glibc 加载器：$LD（设 GLIBC_ROOT）" >&2; exit 2; }
+
+LIBPATH="$GROOT/lib"
+while [ "${1:-}" = "-L" ]; do
+  [ -n "${2:-}" ] || { echo "glibc-run: -L 后面要跟目录" >&2; exit 2; }
+  LIBPATH="$LIBPATH:$2"; shift 2
+done
+[ -n "${1:-}" ] || { echo "usage: glibc-run [-L dir] <program> [args...]" >&2; exit 2; }
+
+PROG="$1"
+unset LD_PRELOAD
+
+if [ "${GLIBC_RUN_NO_PRELOAD:-0}" = "1" ] || [ ! -r "$PRELOAD" ]; then
+  exec "$LD" --library-path "$LIBPATH" --argv0 "$PROG" "$@"
+else
+  exec "$LD" --library-path "$LIBPATH" --argv0 "$PROG" --preload "$PRELOAD" "$@"
+fi

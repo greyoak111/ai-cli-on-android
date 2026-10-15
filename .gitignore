@@ -1,0 +1,11 @@
+# 运行产物
+logs/
+*.log
+
+# 依赖与解包出来的东西（仓库不放二进制）
+node_modules/
+libs/
+musl/
+*.tgz
+*.zip
+*.tar.gz

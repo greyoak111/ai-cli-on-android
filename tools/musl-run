@@ -1,0 +1,27 @@
+#!/bin/bash
+# musl-run — 运行 Linux arm64（musl 动态）程序
+#
+#   musl-run <程序> [参数...]
+#
+# 环境变量：
+#   MUSL_ROOT   Alpine musl 包解开的目录（默认 ./musl，需含 lib/ld-musl-aarch64.so.1）
+#   ENOSYS_RUN  seccomp 垫片命令（默认 enosys-run；没有就设空串跳过）
+#
+# 两个必须：
+#   - 清掉 LD_PRELOAD：bionic 的预载库会让 musl 加载器报一串 "symbol not found"
+#   - 套 enosys：musl 直启在安卓上会撞 seccomp（SIGSYS，退出码 159）
+set -e
+
+ROOT="${MUSL_ROOT:-$PWD/musl}"
+LD="$ROOT/lib/ld-musl-aarch64.so.1"
+ENOSYS="${ENOSYS_RUN-enosys-run}"
+
+[ -x "$LD" ] || { echo "musl-run: 找不到 musl 加载器：$LD（设 MUSL_ROOT）" >&2; exit 2; }
+[ -n "${1:-}" ] || { echo "usage: musl-run <program> [args...]" >&2; exit 2; }
+
+unset LD_PRELOAD
+if [ -n "$ENOSYS" ] && command -v "$ENOSYS" >/dev/null 2>&1; then
+  exec "$ENOSYS" "$LD" --library-path "$ROOT/lib" "$@"
+else
+  exec "$LD" --library-path "$ROOT/lib" "$@"
+fi
