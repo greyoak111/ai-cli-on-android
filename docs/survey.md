@@ -5,7 +5,7 @@
 
 ---
 
-## 1. Google · Antigravity CLI（`agy`）1.3.5 — ✅ 唯一官方安卓构建
+## 1. Google · Antigravity CLI（`agy`）1.3.5 — ✅ 官方安卓构建
 
 **来源**：`curl -fsSL https://antigravity.google/cli/install.sh | bash`
 （支持 `--dir` 指定目录；平台判定见下）
@@ -20,7 +20,7 @@
 Linux) if [ "$(uname -o 2>/dev/null)" = "Android" ]; then os="android"; else os="linux"; fi ;;
 ```
 
-manifest 直接给 `cli_android_arm64.tar.gz`。**这是本次横评里唯一一家把安卓当一等公民的。**
+manifest 直接给 `cli_android_arm64.tar.gz`。这次测的各家里，只有它提供了官方安卓构建。
 
 **实测证据**：
 
@@ -32,7 +32,7 @@ $ agy -p "say hi"    → 打印 Google OAuth 登录 URL，等待授权码（无�
 
 ---
 
-## 2. Anthropic · Claude Code 2.1.292 — ✅（基线，本机日常在跑）
+## 2. Anthropic · Claude Code 2.1.292 — ✅（基线，本机日常使用）
 
 **形态**：glibc 动态（官方 linux-arm64 原版二进制）。
 
@@ -66,7 +66,7 @@ $ HTTPS_PROXY=http://127.0.0.1:18080 SSL_CERT_FILE=<cert.pem> OPENAI_API_KEY=sk-
 
 ---
 
-## 4. xAI · Grok Build 0.1.220 — ✅（形态最刁钻的一家）
+## 4. xAI · Grok Build 0.1.220 — ✅（需要先解压）
 
 **来源**：`npm pack @xai-official/grok-linux-arm64@0.1.220`
 
@@ -89,13 +89,13 @@ $ grok -p "say hi" → HTTP 400: Incorrect API key provided（请求到了 api.x
 
 ---
 
-## 5/6. 微软 · GitHub Copilot CLI 1.0.98 — ✅（glibc 版跑出了**真实回复**）
+## 5/6. 微软 · GitHub Copilot CLI 1.0.98 — ✅（glibc 版用真实凭据得到回复）
 
 **来源**：`npm pack @github/copilot-linux-arm64@1.0.98` / `@github/copilot-linuxmusl-arm64@1.0.98`
 （两种 libc 都发，罕见）
 
 **glibc 版**：需 `libstdc++.so.6`（`$PREFIX/glibc/lib` 里没有）+ 加载器。跑通后
-**直接用本机已有的 gh 凭据完成了真实问答**：
+用本机已有的 gh 凭据完成了一次问答：
 
 ```
 $ glibc-run -L ./libs copilot -p "say hi"
@@ -115,7 +115,7 @@ env -u LD_PRELOAD enosys-run <musl>/ld-musl-aarch64.so.1 --library-path <musl> .
 
 ---
 
-## 7. Google · Gemini CLI 0.64.0 — ✅（一个环境变量的事）
+## 7. Google · Gemini CLI 0.64.0 — ✅（加一个环境变量）
 
 **来源**：`npm install @google/gemini-cli`（纯 Node）
 
@@ -168,7 +168,7 @@ $ cbc -p "say hi" → Authentication required. Please use /login …
 
 ---
 
-## 11. Mistral · Vibe 2.26.1 — ✅（pip 死路，二进制活路）
+## 11. Mistral · Vibe 2.26.1 — ✅（pip 装不上，改用官方二进制）
 
 **来源**：PyPI 上下不到 —— 本机 Python 的兼容 tag 里**一个 manylinux 都没有**，
 而它的 sdist 构建后端是 maturin（Rust），本机也没有 Rust。
@@ -205,7 +205,7 @@ $ grep… q chat "say hi" → error: You are not logged in, please log in with `
 
 ---
 
-## 14. DeepSeek · DeepSeek Harness（`dsh`）0.2.0-rc.2 — ✅ 完整跑通一个 agent 回合
+## 14. DeepSeek · DeepSeek Harness（`dsh`）0.2.0-rc.2 — ✅ 对本地 mock 端点跑完一个回合
 
 **来源**：npm `@deepseek-ai/dsh`（MIT；源码 `github.com/deepseek-ai/deepseek-harness`，口号
 "Everything is a Plugin"）。纯 Node 程序，**没有 linux-arm64 预编译主程序**。
@@ -213,9 +213,9 @@ $ grep… q chat "say hi" → error: You are not logged in, please log in with `
 **形态**：Node 程序 + 三个 **Node-API 原生附件**。主程序本身完全跨平台，
 卡点全在附件上 —— 它们只发布 darwin / linux-x64 / linux-arm64 / win32 的产物，**没有 android**。
 
-**它为什么比其余各家都"容易进来"**：不换加载器（不碰 bionic/glibc 之争）、不要 seccomp 垫片、
-不要 DNS 桥、不要 CA 包 —— 那几类坑它一个都不占。适配只落在"安卓没有的那几个原生附件"上，
-而且**每一处都有不需要编译的替代路径**：
+**适配集中在原生附件上**：不换加载器（不碰 bionic/glibc 之争）、不要 seccomp 垫片、
+不要 DNS 桥、不要 CA 包 —— 前面几家遇到的那几类问题它都没有。适配只落在"安卓没有的那几个原生附件"上，
+每一处都找到了不需要编译的替代路径：
 
 | 上游原生件 | 用途 | Android 上的症状 | 不编译的替代 |
 |---|---|---|---|
@@ -242,13 +242,13 @@ $ dsh --profile headless "reply with the word ok"     # DEEPSEEK_BASE_URL 指向
                                        → OK-FROM-LOCAL-MOCK      （rc=0，stderr 为空）
 ```
 
-这条 headless 是本仓库里**唯一跑完整回合**的一例：本地 mock 端点上收到的请求是
+这次没有用真实模型，而是让本地 mock 端点接住请求，好看清它发出了什么。收到的请求是
 `POST /v1/messages`、`user-agent: deepseek-harness/0.2.0-rc.2`、`model: deepseek-flash`、
 请求体 53 KB，system 里是完整的 agent 提示词，运行上下文里的文件策略已经落到会话工作区
 （`workspace-write` + 实际目录）、工具清单齐备 —— 说明插件树、内部模块加载、沙箱策略、
-会话持久化这一整套在安卓上都是活的。（别家只验到"打到真实 API 得 401"，这条验到了回合结束。）
+会话持久化在安卓上都能工作。（与 Claude Code、Copilot 不同，这里没有接真实模型。）
 
-**社区已有现成的适配补丁集**：`woaiys3/deepseek-harness-android-app` 的
+**社区已有适配补丁集**：`woaiys3/deepseek-harness-android-app` 的
 `dsh-patches/overlay-020/`（12 个文件，覆盖上面全部四处，**零原生编译**）。本机是把这套补丁
 原样应用（外加 `node --expose-internals` 启动）后跑通的；该项目的归纳是"4 处需要适配 Android 的
 源码改动"：subprocess（node-pty 编不了）、attachment（sharp + 硬链接）、bash 沙箱、

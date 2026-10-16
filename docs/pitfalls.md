@@ -37,7 +37,7 @@ npm install --os=linux --cpu=arm64 --libc=glibc <包>
 
 ---
 
-## 2. Python 的兼容 tag 里没有 manylinux，PyPI 形同虚设
+## 2. Python 的兼容 tag 里没有 manylinux，PyPI 上的 aarch64 轮子基本用不了
 
 **症状**：`pip install <包>` 去拿 sdist 现场构建，或者干脆失败。
 
@@ -92,7 +92,7 @@ SSL_CERT_FILE=/path/to/cert.pem <程序> …
 
 ---
 
-## 5. seccomp：`SIGSYS: bad system call`，一行就死
+## 5. seccomp：启动即退，只留一行 `SIGSYS: bad system call`
 
 **症状**：程序启动即死，只打印一行 `SIGSYS: bad system call`；或"有的子命令崩、有的正常"
 （用到被拦系统调用那条路径才崩）。
